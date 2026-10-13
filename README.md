@@ -1,25 +1,25 @@
 # churn-prediction-pipeline
 
-An end-to-end customer churn pipeline in Python: synthetic data generation, a preprocessing and model pipeline built with scikit-learn, cross-validated evaluation, saved artifacts, and a command-line interface for training and scoring.
+A churn prediction project in Python with scikit-learn. It creates synthetic customer data, trains a model, checks how well it does on held-out data, and scores new customers from the command line.
 
-The data is synthetic so the project runs without a download. The generator uses a known logistic model, so you can check that the pipeline recovers real structure. The same code works on any CSV with the same columns and a binary `churned` column.
+The data is synthetic, so you can run everything without downloading anything. The generator uses a known logistic model, which makes it a useful sanity check: a good pipeline should find the pattern that was built in. You can also use your own CSV, as long as it has the same columns and a binary `churned` column.
 
-## Pipeline
+## How it works
 
-1. **Data:** `churn/data.py` generates customers with tenure, charges, support calls, contract type, internet service, and payment method. Churn is drawn from a logistic model in which short tenure, month-to-month contracts, high charges, and frequent support calls raise the probability of leaving.
-2. **Preprocessing and model:** `churn/model.py` wraps a `ColumnTransformer` (standard scaling for numeric columns, one-hot encoding for categorical columns) and a classifier in one `Pipeline`. Preprocessing is fit only on training folds, so there is no leakage into cross-validation.
-3. **Evaluation:** `churn/train.py` makes a stratified train/test split, reports 5-fold cross-validated ROC AUC on the training set, then reports ROC AUC and a classification report on the held-out test set.
-4. **Persistence:** the fitted pipeline is saved with joblib and the metrics are written to JSON.
-5. **Inference:** `churn predict` adds a `churn_probability` column to any CSV with the feature columns.
+1. **Data:** `churn/data.py` creates customers with tenure, charges, support calls, contract type, internet service and payment method. Short tenure, month-to-month contracts, high charges and lots of support calls make churn more likely.
+2. **Preprocessing and model:** `churn/model.py` puts scaling, one-hot encoding and the classifier into a single scikit-learn `Pipeline`. The preprocessing is fitted only on training data, so cross-validation doesn't leak information from the test folds.
+3. **Evaluation:** `churn/train.py` makes a stratified train/test split, reports 5-fold cross-validated ROC AUC on the training set, then reports ROC AUC and a classification report on the test set.
+4. **Saving:** the fitted pipeline is saved with joblib, and the metrics go into a JSON file.
+5. **Scoring:** `churn predict` adds a `churn_probability` column to any CSV that has the feature columns.
 
-## Results (synthetic data, 5,000 rows, seed 42)
+## Results on synthetic data (5,000 rows, seed 42)
 
 | Model | CV ROC AUC (mean ± std) | Test ROC AUC |
 | --- | --- | --- |
 | Logistic regression | 0.829 ± 0.010 | 0.839 |
 | Random forest | 0.810 ± 0.010 | 0.827 |
 
-Logistic regression scores higher because the synthetic labels come from a logistic model. On real data the ranking may change, so run both and compare.
+Logistic regression comes out ahead, which is probably because the synthetic labels come from a logistic model. I wouldn't read much into the gap. On real data, the ranking could be different, so try both.
 
 ## Install
 
@@ -40,29 +40,30 @@ python -m churn.cli train --data customers.csv --model logistic --out-dir artifa
 python -m churn.cli predict --model artifacts/model.joblib --data customers.csv --out scored.csv
 ```
 
+`predict` works on any CSV with the feature columns. It doesn't evaluate the model. For that, use the held-out metrics printed by `train`.
+
 ## Tests
 
 ```bash
 pytest -q
 ```
 
-The tests cover data generation and reproducibility, input validation, model selection, minimum model quality on synthetic data, and a full generate, train, predict round trip through the CLI.
+The tests cover data generation and reproducibility, input validation, model selection, a minimum quality check on synthetic data, and a full generate, train and predict run through the CLI.
 
 ## Limitations
 
-- The data is synthetic. Performance on real churn data will differ, and feature engineering would matter more.
-- `predict` scores the same file it reads, so it doesn't check model performance on unseen data. Use the held-out metrics from `train` for that.
-- There's no hyperparameter search or model registry.
+- The data is synthetic, so accuracy on real customers will be different. Feature engineering would matter more on real data.
+- There's no hyperparameter search and no model registry.
 
-## Project layout
+## Layout
 
-| Path | Purpose |
+| Path | What it does |
 | --- | --- |
 | `churn/data.py` | Synthetic data generator and column checks |
 | `churn/model.py` | Preprocessing and model pipeline |
-| `churn/train.py` | Training, evaluation, and saving |
+| `churn/train.py` | Training, evaluation and saving |
 | `churn/cli.py` | Command-line interface |
-| `tests/test_pipeline.py` | pytest suite |
+| `tests/test_pipeline.py` | Tests |
 
 ## License
 
